@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" data-build-timestamp="__BUILD_TIMESTAMP__">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Library – Getting started</title>
+    <link rel="stylesheet" href="./assets/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__branding">
+        <h1>Getting started</h1>
+        <p class="site-tagline">Install, build, and ship with confidence.</p>
+      </div>
+      <nav aria-label="Main navigation" class="site-nav">
+        <a href="./index.html">Overview</a>
+        <a href="./getting-started.html" aria-current="page">Getting started</a>
+        <a href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+      <div class="site-header__meta" data-build-badge-target></div>
+    </header>
+    <main class="content">
+      <section>
+        <h2>Install</h2>
+        <pre><code>npm install my-library</code></pre>
+      </section>
+      <section>
+        <h2>Build scripts</h2>
+        <ul>
+          <li><code>npm run build</code> – compile ESM, CJS, and bundles.</li>
+          <li><code>npm run test</code> – execute unit tests.</li>
+          <li><code>npm run test:browser</code> – verify browser bundle behaviour.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Next steps</h2>
+        <p>
+          Update the exports in <code>src/index.ts</code>, customise documentation under <code>docs/</code>,
+          and configure GitHub Actions to automate releases.
+        </p>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <p>&copy; <span id="footer-year"></span> My Library. Released under the MIT License.</p>
+    </footer>
+    <script type="module" src="./assets/build-timestamp.js"></script>
+  </body>
+</html>
