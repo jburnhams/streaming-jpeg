@@ -28,6 +28,7 @@ describe('Direct WASM Encoder', () => {
     // Process the entire image as strips of 8 scanlines
     const stripHeight = 8;
     const bytesPerRow = width * 4; // RGBA
+    let stripCount = 0;
 
     for (let y = 0; y < height; y += stripHeight) {
       const actualStripHeight = Math.min(stripHeight, height - y);
@@ -36,8 +37,16 @@ describe('Direct WASM Encoder', () => {
       const stripData = buffer.slice(stripStart, stripStart + stripSize);
 
       const output = encoder.encode_strip(stripData);
+      stripCount++;
+
+      // Verify encoder outputs data during encoding, not just at the end
       if (output && output.length > 0) {
         chunks.push(output);
+        console.log(`  Strip ${stripCount}: produced ${output.length} bytes`);
+
+        // Basic sanity check: output should be reasonable size
+        assert.ok(output.length > 0, `Strip ${stripCount} should produce output`);
+        assert.ok(output.length < stripSize * 2, `Strip ${stripCount} output should be compressed (got ${output.length}, expected < ${stripSize * 2})`);
       }
     }
 
@@ -45,7 +54,11 @@ describe('Direct WASM Encoder', () => {
     const finalOutput = encoder.finish();
     if (finalOutput && finalOutput.length > 0) {
       chunks.push(finalOutput);
+      console.log(`  Final chunk: ${finalOutput.length} bytes`);
     }
+
+    // Verify we got multiple chunks (progressive encoding)
+    assert.ok(chunks.length > 1, `Should produce multiple chunks during encoding, got ${chunks.length}`);
 
     // Combine all chunks
     const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -93,7 +106,7 @@ describe('Direct WASM Encoder', () => {
       assert.ok(b < 100, `Blue channel should be low, got ${b}`);
     }
 
-    console.log(`Encoded 64x64 solid red image to ${jpegBuffer.length} bytes`);
+    console.log(`Encoded 64x64 solid red image to ${jpegBuffer.length} bytes (${chunks.length} chunks)`);
   });
 
   it('should encode a gradient image directly', async () => {
@@ -238,5 +251,99 @@ describe('Direct WASM Encoder', () => {
     assert.ok(data[2] > 200, `Blue should be high (white), got ${data[2]}`);
 
     console.log(`Encoded 1x1 pixel image to ${jpegBuffer.length} bytes`);
+  });
+
+  it('should respect quality parameter and produce valid JPEGs at different quality levels', async () => {
+    const width = 128;
+    const height = 128;
+
+    // Create a complex gradient image (good for testing quality differences)
+    const buffer = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const offset = (y * width + x) * 4;
+        buffer[offset] = (x * 255) / width;       // R gradient
+        buffer[offset + 1] = (y * 255) / height;  // G gradient
+        buffer[offset + 2] = ((x + y) * 128) / (width + height); // B gradient
+        buffer[offset + 3] = 255;                  // A
+      }
+    }
+
+    const qualities = [100, 75, 50, 25];
+    const results: { quality: number; size: number; data: Uint8Array }[] = [];
+
+    for (const quality of qualities) {
+      const encoder = new StreamingJpegEncoder(width, height, WasmColorType.Rgba, quality);
+      const chunks: Uint8Array[] = [];
+
+      // Process in strips
+      const stripHeight = 8;
+      const bytesPerRow = width * 4;
+
+      for (let y = 0; y < height; y += stripHeight) {
+        const actualStripHeight = Math.min(stripHeight, height - y);
+        const stripSize = actualStripHeight * bytesPerRow;
+        const stripStart = y * bytesPerRow;
+        const stripData = buffer.slice(stripStart, stripStart + stripSize);
+
+        const output = encoder.encode_strip(stripData);
+        if (output && output.length > 0) {
+          chunks.push(output);
+        }
+      }
+
+      const finalOutput = encoder.finish();
+      if (finalOutput && finalOutput.length > 0) {
+        chunks.push(finalOutput);
+      }
+
+      // Combine chunks
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const jpegBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        jpegBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Verify it's a valid JPEG
+      assert.strictEqual(jpegBuffer[0], 0xFF, `Quality ${quality}: Should start with 0xFF`);
+      assert.strictEqual(jpegBuffer[1], 0xD8, `Quality ${quality}: Should have SOI marker`);
+      assert.strictEqual(jpegBuffer[jpegBuffer.length - 2], 0xFF, `Quality ${quality}: Should end with 0xFF`);
+      assert.strictEqual(jpegBuffer[jpegBuffer.length - 1], 0xD9, `Quality ${quality}: Should end with EOI marker`);
+
+      // Verify it can be decoded
+      const decoded = await sharp(jpegBuffer)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      assert.strictEqual(decoded.info.width, width, `Quality ${quality}: Decoded width should match`);
+      assert.strictEqual(decoded.info.height, height, `Quality ${quality}: Decoded height should match`);
+
+      results.push({ quality, size: jpegBuffer.length, data: jpegBuffer });
+      console.log(`  Quality ${quality}: ${jpegBuffer.length} bytes`);
+    }
+
+    // Verify quality parameter affects file size
+    // Higher quality should produce larger files
+    for (let i = 0; i < results.length - 1; i++) {
+      const current = results[i];
+      const next = results[i + 1];
+
+      assert.ok(
+        current.size > next.size,
+        `Quality ${current.quality} (${current.size} bytes) should produce larger file than quality ${next.quality} (${next.size} bytes)`
+      );
+
+      // Verify significant size difference (at least 10% smaller for next quality level)
+      const sizeRatio = next.size / current.size;
+      assert.ok(
+        sizeRatio < 0.95,
+        `Quality ${next.quality} should be significantly smaller than ${current.quality} (ratio: ${sizeRatio.toFixed(2)})`
+      );
+    }
+
+    console.log(`Quality parameter validated: sizes decrease from ${results[0].size} to ${results[results.length - 1].size} bytes`);
   });
 });

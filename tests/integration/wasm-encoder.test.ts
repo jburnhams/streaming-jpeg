@@ -87,15 +87,15 @@ describe('WASM JPEG Encoder Integration', () => {
     const width = 64;
     const height = 64;
 
-    // Create a test pattern
+    // Create a test pattern with gradients (better for testing quality differences)
     const buffer = new Uint8Array(width * height * 4);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const offset = (y * width + x) * 4;
-        buffer[offset] = (x + y) % 256;     // R
-        buffer[offset + 1] = (x * 2) % 256; // G
-        buffer[offset + 2] = (y * 2) % 256; // B
-        buffer[offset + 3] = 255;           // A
+        buffer[offset] = (x * 255) / width;       // R gradient
+        buffer[offset + 1] = (y * 255) / height;  // G gradient
+        buffer[offset + 2] = ((x + y) * 128) / (width + height); // B gradient
+        buffer[offset + 3] = 255;                  // A
       }
     }
 
@@ -105,16 +105,33 @@ describe('WASM JPEG Encoder Integration', () => {
     // Encode with quality 75
     const jpeg75 = await encode(buffer, { width, height, quality: 75 });
 
-    // Both should be valid JPEGs
-    assert.strictEqual(jpeg100[0], 0xFF);
-    assert.strictEqual(jpeg100[1], 0xD8);
-    assert.strictEqual(jpeg75[0], 0xFF);
-    assert.strictEqual(jpeg75[1], 0xD8);
+    // Encode with quality 50
+    const jpeg50 = await encode(buffer, { width, height, quality: 50 });
 
-    // Quality 100 should generally be larger than quality 75
-    // (though this isn't always guaranteed for all images)
-    assert.ok(jpeg100.length > 0, 'Quality 100 JPEG should have content');
-    assert.ok(jpeg75.length > 0, 'Quality 75 JPEG should have content');
+    // All should be valid JPEGs with proper markers
+    assert.strictEqual(jpeg100[0], 0xFF, 'Quality 100: Should start with 0xFF');
+    assert.strictEqual(jpeg100[1], 0xD8, 'Quality 100: Should have SOI marker');
+    assert.strictEqual(jpeg75[0], 0xFF, 'Quality 75: Should start with 0xFF');
+    assert.strictEqual(jpeg75[1], 0xD8, 'Quality 75: Should have SOI marker');
+    assert.strictEqual(jpeg50[0], 0xFF, 'Quality 50: Should start with 0xFF');
+    assert.strictEqual(jpeg50[1], 0xD8, 'Quality 50: Should have SOI marker');
+
+    // Verify all can be decoded successfully
+    const decoded100 = await sharp(jpeg100).raw().toBuffer({ resolveWithObject: true });
+    const decoded75 = await sharp(jpeg75).raw().toBuffer({ resolveWithObject: true });
+    const decoded50 = await sharp(jpeg50).raw().toBuffer({ resolveWithObject: true });
+
+    assert.strictEqual(decoded100.info.width, width, 'Quality 100: Width should match');
+    assert.strictEqual(decoded75.info.width, width, 'Quality 75: Width should match');
+    assert.strictEqual(decoded50.info.width, width, 'Quality 50: Width should match');
+
+    // Higher quality should produce larger files
+    assert.ok(jpeg100.length > jpeg75.length,
+      `Quality 100 (${jpeg100.length} bytes) should be larger than quality 75 (${jpeg75.length} bytes)`);
+    assert.ok(jpeg75.length > jpeg50.length,
+      `Quality 75 (${jpeg75.length} bytes) should be larger than quality 50 (${jpeg50.length} bytes)`);
+
+    console.log(`Quality comparison: Q100=${jpeg100.length}B, Q75=${jpeg75.length}B, Q50=${jpeg50.length}B`);
   });
 
   it('should handle images with dimensions not divisible by 8', async () => {
