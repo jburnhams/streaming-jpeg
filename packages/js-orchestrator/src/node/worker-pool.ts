@@ -24,24 +24,26 @@ export class NodeWorkerPool implements WorkerPool {
   }
 
   private initializePool(): void {
-    // In a real implementation, workers would be created from worker.js
-    // For now, we'll use inline workers with eval (not recommended for production)
+    // Worker code that uses the WASM encoder
     const workerCode = `
       const { parentPort } = require('worker_threads');
 
       let wasmModule = null;
 
       parentPort.on('message', async (data) => {
-        const { id, stripData, width, lumaQTable, chromaQTable } = data;
+        const { id, stripData, width, height, quality } = data;
 
         try {
           // Load WASM module if not already loaded
           if (!wasmModule) {
-            // In a real implementation: wasmModule = await import('wasm-engine');
+            wasmModule = await import('jpeg-encoder-wasm');
           }
 
-          // Process strip (placeholder)
-          const result = new Uint8Array(stripData.length / 2);
+          // Create encoder and encode the strip
+          const { StreamingJpegEncoder, WasmColorType } = wasmModule;
+          const encoder = new StreamingJpegEncoder(width, height, WasmColorType.Rgba, quality);
+          const result = encoder.encode_strip(stripData);
+          encoder.free();
 
           parentPort.postMessage({ id, result });
         } catch (error) {
@@ -64,6 +66,7 @@ export class NodeWorkerPool implements WorkerPool {
     chromaQTable: Uint8Array
   ): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
+      // Note: We're not using the Q tables since the WASM encoder handles quality internally
       const task = { stripData, width, lumaQTable, chromaQTable, resolve, reject };
 
       if (this.availableWorkers.length > 0) {
@@ -106,12 +109,15 @@ export class NodeWorkerPool implements WorkerPool {
 
     worker.on('message', handleMessage);
 
+    // Calculate height from strip data (8 scanlines)
+    const height = Math.ceil(task.stripData.length / (task.width * 4));
+
     worker.postMessage({
       id: taskId,
       stripData: task.stripData,
       width: task.width,
-      lumaQTable: task.lumaQTable,
-      chromaQTable: task.chromaQTable,
+      height: height,
+      quality: 100 // Use maximum quality
     });
   }
 
