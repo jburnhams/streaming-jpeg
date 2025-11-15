@@ -9,8 +9,7 @@ const projectRoot = path.join(__dirname, '..');
 const targets = [
   'dist',
   'build',
-  'docs-dist',
-  'packages/js-orchestrator/dist'
+  'docs-dist'
 ];
 
 for (const target of targets) {

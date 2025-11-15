@@ -6,26 +6,23 @@
     "type": "git",
     "url": "https://github.com/jburnhams/streaming-jpeg.git"
   },
-  "workspaces": [
-    "packages/js-orchestrator"
-  ],
-  "main": "packages/js-orchestrator/dist/cjs/index.cjs",
-  "module": "packages/js-orchestrator/dist/esm/index.js",
-  "types": "packages/js-orchestrator/dist/types/index.d.ts",
+  "main": "dist/cjs/index.cjs",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./packages/js-orchestrator/dist/types/index.d.ts",
-      "browser": "./packages/js-orchestrator/dist/esm/browser/index.js",
-      "node": "./packages/js-orchestrator/dist/esm/node/index.js",
-      "import": "./packages/js-orchestrator/dist/esm/node/index.js",
-      "require": "./packages/js-orchestrator/dist/cjs/node/index.cjs",
-      "default": "./packages/js-orchestrator/dist/esm/node/index.js"
+      "types": "./dist/types/index.d.ts",
+      "browser": "./dist/esm/browser/index.js",
+      "node": "./dist/esm/node/index.js",
+      "import": "./dist/esm/node/index.js",
+      "require": "./dist/cjs/node/index.cjs",
+      "default": "./dist/esm/node/index.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "packages/js-orchestrator/dist",
+    "dist",
     "README.md"
   ],
   "scripts": {

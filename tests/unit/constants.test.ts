@@ -5,7 +5,7 @@ import {
   STANDARD_LUMINANCE_QUANTIZATION,
   STANDARD_CHROMINANCE_QUANTIZATION,
   scaleQuantizationTable
-} from '../../packages/js-orchestrator/src/core/constants.js';
+} from '../../src/core/constants.js';
 
 describe('Constants', () => {
   describe('QUANTIZATION_TABLE_100', () => {

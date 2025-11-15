@@ -6,7 +6,7 @@ import {
   createSOF0,
   createSOS,
   assembleJPEG
-} from '../../packages/js-orchestrator/src/core/jpeg-markers.js';
+} from '../../src/core/jpeg-markers.js';
 
 describe('JPEG Markers', () => {
   describe('createAPP0', () => {

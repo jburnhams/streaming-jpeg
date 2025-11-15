@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { createPixelStreamFromBuffer } from '../../packages/js-orchestrator/src/core/encoder.js';
+import { createPixelStreamFromBuffer } from '../../src/core/encoder.js';
 
 describe('Encoder Core', () => {
   describe('createPixelStreamFromBuffer', () => {

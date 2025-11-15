@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { createPixelStreamFromBuffer } from '../../packages/js-orchestrator/src/core/encoder.js';
-import { assembleJPEG } from '../../packages/js-orchestrator/src/core/jpeg-markers.js';
-import { scaleQuantizationTable, STANDARD_LUMINANCE_QUANTIZATION, STANDARD_CHROMINANCE_QUANTIZATION } from '../../packages/js-orchestrator/src/core/constants.js';
+import { createPixelStreamFromBuffer } from '../../src/core/encoder.js';
+import { assembleJPEG } from '../../src/core/jpeg-markers.js';
+import { scaleQuantizationTable, STANDARD_LUMINANCE_QUANTIZATION, STANDARD_CHROMINANCE_QUANTIZATION } from '../../src/core/constants.js';
 
 describe('JPEG Encoder Integration', () => {
   it('should assemble a complete JPEG from components', async () => {
