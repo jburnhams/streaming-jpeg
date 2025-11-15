@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import sharp from 'sharp';
 import { encode } from '../../src/node/index.js';
 
 describe('WASM JPEG Encoder Integration', () => {
@@ -34,6 +35,21 @@ describe('WASM JPEG Encoder Integration', () => {
     // File should be reasonably sized (not too small, not too large)
     assert.ok(jpegBuffer.length > 100, 'JPEG should be larger than 100 bytes');
     assert.ok(jpegBuffer.length < 10000, 'JPEG should be smaller than 10KB for a small image');
+
+    // Validate pixel content by decoding
+    const decoded = await sharp(jpegBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    assert.strictEqual(decoded.info.width, width);
+    assert.strictEqual(decoded.info.height, height);
+
+    // Verify red color
+    const { data } = decoded;
+    assert.ok(data[0] > 200, 'Red channel should be high');
+    assert.ok(data[1] < 100, 'Green channel should be low');
+    assert.ok(data[2] < 100, 'Blue channel should be low');
   });
 
   it('should encode a gradient image', async () => {

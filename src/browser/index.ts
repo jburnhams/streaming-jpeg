@@ -2,26 +2,24 @@
  * Browser entry point for streaming-jpeg encoder
  */
 
-import { JpegEncoder, createPixelStreamFromBuffer, type PixelStream, type EncodeOptions } from '../core/encoder.js';
-import { BrowserWorkerPool } from './worker-pool.js';
+// @ts-ignore - WASM package may not have perfect types
+import { StreamingJpegEncoder, WasmColorType } from 'jpeg-encoder-wasm/pkg/jpeg_encoder.js';
 
 export type BrowserImageSource =
   | HTMLCanvasElement
   | ImageData
   | Uint8Array; // Raw RGBA buffer
 
-export interface BrowserEncodeOptions extends Omit<EncodeOptions, 'width' | 'height'> {
-  width?: number;  // Required for raw buffer
-  height?: number; // Required for raw buffer
+export interface BrowserEncodeOptions {
+  width?: number;   // Required for raw buffer
+  height?: number;  // Required for raw buffer
+  quality?: number; // JPEG quality (1-100), defaults to 100
 }
 
 /**
- * Create a pixel stream from a browser image source
+ * Convert a browser image source to a Uint8Array buffer
  */
-async function* createBrowserPixelStream(
-  source: BrowserImageSource,
-  options: BrowserEncodeOptions
-): PixelStream {
+function sourceToBuffer(source: BrowserImageSource): Uint8Array {
   // Handle Canvas
   if (source instanceof HTMLCanvasElement) {
     const ctx = source.getContext('2d');
@@ -30,24 +28,17 @@ async function* createBrowserPixelStream(
     }
 
     const imageData = ctx.getImageData(0, 0, source.width, source.height);
-    yield* createPixelStreamFromBuffer(new Uint8Array(imageData.data), source.width, source.height);
-    return;
+    return new Uint8Array(imageData.data);
   }
 
   // Handle ImageData
   if (source instanceof ImageData) {
-    yield* createPixelStreamFromBuffer(new Uint8Array(source.data), source.width, source.height);
-    return;
+    return new Uint8Array(source.data);
   }
 
   // Handle raw buffer
   if (source instanceof Uint8Array) {
-    const { width, height } = options;
-    if (!width || !height) {
-      throw new Error('Width and height are required for raw buffer encoding');
-    }
-    yield* createPixelStreamFromBuffer(source, width, height);
-    return;
+    return source;
   }
 
   throw new Error('Unsupported image source type');
@@ -63,6 +54,8 @@ export async function encode(
   source: BrowserImageSource,
   options: BrowserEncodeOptions = {}
 ): Promise<Blob> {
+  const { quality = 100 } = options;
+
   // Determine dimensions
   let width: number;
   let height: number;
@@ -81,26 +74,55 @@ export async function encode(
     height = options.height;
   }
 
-  // Create worker pool
-  const workerPool = new BrowserWorkerPool();
+  // Convert source to buffer
+  const imageData = sourceToBuffer(source);
 
-  try {
-    // Create encoder
-    const encoder = new JpegEncoder(workerPool);
-
-    // Create pixel stream
-    const pixelStream = createBrowserPixelStream(source, { ...options, width, height });
-
-    // Encode
-    const jpegData = await encoder.encode(pixelStream, { width, height, quality: options.quality });
-
-    // Return as Blob (create new Uint8Array to ensure proper ArrayBuffer type)
-    return new Blob([new Uint8Array(jpegData)], { type: 'image/jpeg' });
-  } finally {
-    workerPool.terminate();
+  // Validate buffer size
+  const expectedSize = width * height * 4; // RGBA
+  if (imageData.length < expectedSize) {
+    throw new Error(`Buffer too small: expected at least ${expectedSize} bytes for ${width}x${height} RGBA image, got ${imageData.length}`);
   }
+
+  // Create WASM encoder
+  const encoder = new StreamingJpegEncoder(width, height, WasmColorType.Rgba, quality);
+
+  // Collect output chunks
+  const chunks: Uint8Array[] = [];
+
+  // Process in 8-scanline strips
+  const stripHeight = 8;
+  const bytesPerRow = width * 4; // RGBA
+
+  for (let y = 0; y < height; y += stripHeight) {
+    const actualStripHeight = Math.min(stripHeight, height - y);
+    const stripSize = actualStripHeight * bytesPerRow;
+    const stripStart = y * bytesPerRow;
+    const stripData = imageData.slice(stripStart, stripStart + stripSize);
+
+    const output = encoder.encode_strip(stripData);
+    if (output && output.length > 0) {
+      chunks.push(output);
+    }
+  }
+
+  // Finish encoding
+  const finalOutput = encoder.finish();
+  if (finalOutput && finalOutput.length > 0) {
+    chunks.push(finalOutput);
+  }
+
+  // Combine all chunks into a single buffer
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const jpegBuffer = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    jpegBuffer.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Return as Blob
+  return new Blob([jpegBuffer], { type: 'image/jpeg' });
 }
 
-// Export types and classes for advanced usage
-export { JpegEncoder, BrowserWorkerPool };
-export type { PixelStream, EncodeOptions };
+// Export WasmColorType for advanced usage
+export { WasmColorType, StreamingJpegEncoder };
