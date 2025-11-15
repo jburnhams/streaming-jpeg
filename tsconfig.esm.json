@@ -1,15 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist/esm",
-    "rootDir": "./src",
+    "outDir": "./packages/js-orchestrator/dist/esm",
+    "rootDir": "./packages/js-orchestrator/src",
     "declaration": true,
-    "declarationDir": "./dist/types",
+    "declarationDir": "./packages/js-orchestrator/dist/types",
     "declarationMap": true,
     "sourceMap": true,
     "module": "NodeNext",
     "moduleResolution": "nodenext"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["packages/js-orchestrator/src/**/*.ts"],
+  "exclude": ["packages/js-orchestrator/src/**/*.test.ts"]
 }
