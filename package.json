@@ -13,11 +13,9 @@
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
-      "browser": "./dist/esm/browser/index.js",
-      "node": "./dist/esm/node/index.js",
-      "import": "./dist/esm/node/index.js",
-      "require": "./dist/cjs/node/index.cjs",
-      "default": "./dist/esm/node/index.js"
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs",
+      "default": "./dist/esm/index.js"
     },
     "./package.json": "./package.json"
   },
