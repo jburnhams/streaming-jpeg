@@ -4,8 +4,8 @@
 
 import { readFile } from 'fs/promises';
 import { Readable } from 'stream';
-import { JpegEncoder, createPixelStreamFromBuffer, type PixelStream, type EncodeOptions } from '../core/encoder.js';
-import { NodeWorkerPool } from './worker-pool.js';
+// @ts-ignore - WASM package may not have perfect types
+import { StreamingJpegEncoder, WasmColorType } from 'jpeg-encoder-wasm/pkg/jpeg_encoder.js';
 
 export type NodeImageSource =
   | string              // File path
@@ -13,75 +13,41 @@ export type NodeImageSource =
   | Uint8Array          // Raw RGBA buffer
   | Readable;           // Readable stream
 
-export interface NodeEncodeOptions extends Omit<EncodeOptions, 'width' | 'height'> {
-  width?: number;  // Required for raw buffer/stream
-  height?: number; // Required for raw buffer/stream
+export interface NodeEncodeOptions {
+  width?: number;   // Required for raw buffer/stream
+  height?: number;  // Required for raw buffer/stream
+  quality?: number; // JPEG quality (1-100), defaults to 100
 }
 
 /**
- * Create a pixel stream from a Node.js image source
+ * Convert a Node.js image source to a Uint8Array buffer
  */
-async function* createNodePixelStream(
-  source: NodeImageSource,
-  options: NodeEncodeOptions
-): PixelStream {
+async function sourceToBuffer(
+  source: NodeImageSource
+): Promise<Uint8Array> {
   // Handle file path
   if (typeof source === 'string') {
     const buffer = await readFile(source);
-    const { width, height } = options;
-    if (!width || !height) {
-      throw new Error('Width and height are required when encoding from file');
-    }
-    yield* createPixelStreamFromBuffer(new Uint8Array(buffer), width, height);
-    return;
+    return new Uint8Array(buffer);
   }
 
   // Handle Buffer
   if (Buffer.isBuffer(source)) {
-    const { width, height } = options;
-    if (!width || !height) {
-      throw new Error('Width and height are required for raw buffer encoding');
-    }
-    yield* createPixelStreamFromBuffer(new Uint8Array(source), width, height);
-    return;
+    return new Uint8Array(source);
   }
 
   // Handle Uint8Array
   if (source instanceof Uint8Array) {
-    const { width, height } = options;
-    if (!width || !height) {
-      throw new Error('Width and height are required for raw buffer encoding');
-    }
-    yield* createPixelStreamFromBuffer(source, width, height);
-    return;
+    return source;
   }
 
   // Handle Readable stream
   if (source instanceof Readable) {
-    const { width, height } = options;
-    if (!width || !height) {
-      throw new Error('Width and height are required for stream encoding');
-    }
-
-    const bytesPerLine = width * 4; // RGBA
-    let buffer = Buffer.alloc(0);
-
+    const chunks: Buffer[] = [];
     for await (const chunk of source) {
-      buffer = Buffer.concat([buffer, chunk]);
-
-      // Yield complete scanlines
-      while (buffer.length >= bytesPerLine) {
-        const line = buffer.subarray(0, bytesPerLine);
-        buffer = buffer.subarray(bytesPerLine);
-        yield new Uint8Array(line);
-      }
+      chunks.push(chunk);
     }
-
-    // Handle remaining data
-    if (buffer.length > 0) {
-      console.warn('Warning: Incomplete scanline data at end of stream');
-    }
-    return;
+    return new Uint8Array(Buffer.concat(chunks));
   }
 
   throw new Error('Unsupported image source type');
@@ -97,32 +63,61 @@ export async function encode(
   source: NodeImageSource,
   options: NodeEncodeOptions
 ): Promise<Buffer> {
-  const { width, height } = options;
+  const { width, height, quality = 100 } = options;
 
   if (!width || !height) {
     throw new Error('Width and height are required');
   }
 
-  // Create worker pool
-  const workerPool = new NodeWorkerPool();
+  // Convert source to buffer
+  const imageData = await sourceToBuffer(source);
 
-  try {
-    // Create encoder
-    const encoder = new JpegEncoder(workerPool);
-
-    // Create pixel stream
-    const pixelStream = createNodePixelStream(source, options);
-
-    // Encode
-    const jpegData = await encoder.encode(pixelStream, { width, height, quality: options.quality });
-
-    // Return as Buffer
-    return Buffer.from(jpegData);
-  } finally {
-    workerPool.terminate();
+  // Validate buffer size
+  const expectedSize = width * height * 4; // RGBA
+  if (imageData.length < expectedSize) {
+    throw new Error(`Buffer too small: expected at least ${expectedSize} bytes for ${width}x${height} RGBA image, got ${imageData.length}`);
   }
+
+  // Create WASM encoder
+  const encoder = new StreamingJpegEncoder(width, height, WasmColorType.Rgba, quality);
+
+  // Collect output chunks
+  const chunks: Uint8Array[] = [];
+
+  // Process in 8-scanline strips
+  const stripHeight = 8;
+  const bytesPerRow = width * 4; // RGBA
+
+  for (let y = 0; y < height; y += stripHeight) {
+    const actualStripHeight = Math.min(stripHeight, height - y);
+    const stripSize = actualStripHeight * bytesPerRow;
+    const stripStart = y * bytesPerRow;
+    const stripData = imageData.slice(stripStart, stripStart + stripSize);
+
+    const output = encoder.encode_strip(stripData);
+    if (output && output.length > 0) {
+      chunks.push(output);
+    }
+  }
+
+  // Finish encoding
+  const finalOutput = encoder.finish();
+  if (finalOutput && finalOutput.length > 0) {
+    chunks.push(finalOutput);
+  }
+
+  // Combine all chunks into a single buffer
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const jpegBuffer = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    jpegBuffer.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Return as Buffer
+  return Buffer.from(jpegBuffer);
 }
 
-// Export types and classes for advanced usage
-export { JpegEncoder, NodeWorkerPool };
-export type { PixelStream, EncodeOptions };
+// Export WasmColorType for advanced usage
+export { WasmColorType, StreamingJpegEncoder };
