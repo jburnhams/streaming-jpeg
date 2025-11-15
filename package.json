@@ -7,7 +7,7 @@
     "url": "https://github.com/jburnhams/streaming-jpeg.git"
   },
   "workspaces": [
-    "packages/*"
+    "packages/js-orchestrator"
   ],
   "main": "packages/js-orchestrator/dist/cjs/index.cjs",
   "module": "packages/js-orchestrator/dist/esm/index.js",
@@ -26,18 +26,15 @@
   },
   "files": [
     "packages/js-orchestrator/dist",
-    "packages/wasm-engine/pkg",
     "README.md"
   ],
   "scripts": {
     "install:all": "npm install",
     "clean": "node scripts/clean.mjs",
-    "build:wasm": "cd packages/wasm-engine && wasm-pack build --target bundler --out-dir pkg",
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:bundles": "node scripts/build-bundles.mjs",
-    "build:js": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:bundles",
-    "build": "npm run build:wasm && npm run build:js",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:bundles",
     "build:tests": "tsc -p tsconfig.tests.json",
     "build:docs": "npm run build && node scripts/build-browser-bundle.js",
     "test": "npm run test:unit",
@@ -49,9 +46,7 @@
     "smoke": "npm run smoke:esm && npm run smoke:cjs",
     "coverage": "npm run build && npm run build:tests && c8 --reporter=lcov --reporter=text node scripts/run-tests.mjs unit",
     "size": "npm run build && node scripts/check-bundle-size.mjs",
-    "dev": "npm run watch:wasm & npm run dev:js",
-    "watch:wasm": "cd packages/wasm-engine && cargo watch -x 'build --target wasm32-unknown-unknown'",
-    "dev:js": "tsc -p tsconfig.esm.json --watch",
+    "dev": "tsc -p tsconfig.esm.json --watch",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -76,5 +71,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "jpeg-encoder-wasm": "github:jburnhams/jpeg-encoder"
+  }
 }

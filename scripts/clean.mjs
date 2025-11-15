@@ -10,9 +10,7 @@ const targets = [
   'dist',
   'build',
   'docs-dist',
-  'packages/js-orchestrator/dist',
-  'packages/wasm-engine/pkg',
-  'packages/wasm-engine/target'
+  'packages/js-orchestrator/dist'
 ];
 
 for (const target of targets) {

@@ -18,6 +18,6 @@
   },
   "private": true,
   "dependencies": {
-    "wasm-engine": "file:../wasm-engine"
+    "jpeg-encoder-wasm": "github:jburnhams/jpeg-encoder"
   }
 }
