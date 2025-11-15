@@ -9,13 +9,12 @@
     "removeComments": false
   },
   "include": [
-    "packages/js-orchestrator/src/**/*.ts",
+    "src/**/*.ts",
     "tests/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "packages/wasm-engine",
-    "packages/js-orchestrator/dist",
+    "dist",
     "build/tests",
     "build/browser-tests"
   ]

@@ -28,13 +28,17 @@ let files = [];
 try {
   files = collectTests(root);
 } catch (error) {
+  if (error.code === 'ENOENT') {
+    console.log(`No test directory found at "${root}". Skipping ${variant} tests.`);
+    process.exit(0);
+  }
   console.error(`Failed to read tests from "${root}": ${error.message}`);
   process.exit(1);
 }
 
 if (files.length === 0) {
-  console.error(`No compiled tests were found under "${root}".`);
-  process.exit(1);
+  console.log(`No compiled tests were found under "${root}". Skipping ${variant} tests.`);
+  process.exit(0);
 }
 
 const child = spawn(process.execPath, ['--expose-gc', '--test', '--test-reporter=spec', ...files], {

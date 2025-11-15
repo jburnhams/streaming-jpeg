@@ -9,10 +9,7 @@ const projectRoot = path.join(__dirname, '..');
 const targets = [
   'dist',
   'build',
-  'docs-dist',
-  'packages/js-orchestrator/dist',
-  'packages/wasm-engine/pkg',
-  'packages/wasm-engine/target'
+  'docs-dist'
 ];
 
 for (const target of targets) {
