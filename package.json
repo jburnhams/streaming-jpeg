@@ -1,51 +1,43 @@
 {
-  "name": "my-library",
+  "name": "streaming-jpeg",
   "version": "0.1.0",
-  "description": "A description of your library",
+  "description": "High-performance, universal, streaming JPEG encoder with Rust/WebAssembly acceleration",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/YOUR_REPO.git"
+    "url": "https://github.com/jburnhams/streaming-jpeg.git"
   },
-  "main": "dist/cjs/index.cjs",
-  "module": "dist/esm/index.js",
-  "types": "dist/types/index.d.ts",
+  "workspaces": [
+    "packages/*"
+  ],
+  "main": "packages/js-orchestrator/dist/cjs/index.cjs",
+  "module": "packages/js-orchestrator/dist/esm/index.js",
+  "types": "packages/js-orchestrator/dist/types/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs",
-      "browser": {
-        "default": "./dist/bundles/my-library.esm.js"
-      },
-      "default": "./dist/esm/index.js"
-    },
-    "./bundle": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/bundles/my-library.esm.js"
-    },
-    "./browser": {
-      "default": "./dist/browser/my-library.min.js"
+      "types": "./packages/js-orchestrator/dist/types/index.d.ts",
+      "browser": "./packages/js-orchestrator/dist/esm/browser/index.js",
+      "node": "./packages/js-orchestrator/dist/esm/node/index.js",
+      "import": "./packages/js-orchestrator/dist/esm/node/index.js",
+      "require": "./packages/js-orchestrator/dist/cjs/node/index.cjs",
+      "default": "./packages/js-orchestrator/dist/esm/node/index.js"
     },
     "./package.json": "./package.json"
   },
-  "browser": "dist/browser/my-library.min.js",
-  "unpkg": "dist/browser/my-library.min.js",
-  "jsdelivr": "dist/browser/my-library.min.js",
   "files": [
-    "dist/esm",
-    "dist/cjs",
-    "dist/bundles",
-    "dist/browser",
-    "dist/types",
+    "packages/js-orchestrator/dist",
+    "packages/wasm-engine/pkg",
     "README.md"
   ],
   "scripts": {
+    "install:all": "npm install",
     "clean": "node scripts/clean.mjs",
+    "build:wasm": "cd packages/wasm-engine && wasm-pack build --target bundler --out-dir pkg",
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:bundles": "node scripts/build-bundles.mjs",
-    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:bundles",
+    "build:js": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:bundles",
+    "build": "npm run build:wasm && npm run build:js",
     "build:tests": "tsc -p tsconfig.tests.json",
     "build:docs": "npm run build && node scripts/build-browser-bundle.js",
     "test": "npm run test:unit",
@@ -57,11 +49,21 @@
     "smoke": "npm run smoke:esm && npm run smoke:cjs",
     "coverage": "npm run build && npm run build:tests && c8 --reporter=lcov --reporter=text node scripts/run-tests.mjs unit",
     "size": "npm run build && node scripts/check-bundle-size.mjs",
+    "dev": "npm run watch:wasm & npm run dev:js",
+    "watch:wasm": "cd packages/wasm-engine && cargo watch -x 'build --target wasm32-unknown-unknown'",
+    "dev:js": "tsc -p tsconfig.esm.json --watch",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "library",
-    "template"
+    "jpeg",
+    "encoder",
+    "streaming",
+    "wasm",
+    "webassembly",
+    "rust",
+    "image",
+    "compression",
+    "high-performance"
   ],
   "author": "",
   "license": "MIT",

@@ -1,116 +1,147 @@
-# JavaScript/TypeScript Library Template
+# streaming-jpeg
 
-A production-ready template for creating npm libraries with TypeScript, comprehensive testing, and automated CI/CD.
+A high-performance, universal, streaming JPEG encoder powered by Rust/WebAssembly. Designed for maximum quality and constant memory usage through horizontal strip processing.
 
 ## Features
 
-- **TypeScript** with strict mode and multiple build targets
-- **Multi-format distribution**: ESM, CommonJS, and Browser bundles
-- **Testing**: Node.js built-in test framework with coverage reporting
-- **Browser testing**: Automated browser bundle validation
-- **GitHub Actions CI/CD**:
-  - Multi-version Node.js testing (20.x, 22.x, 24.x, 25.x)
-  - Automated version bumping and releases
-  - NPM publishing with OIDC (no stored credentials)
-  - GitHub Pages deployment for documentation
-  - Dependency review for security
-- **Bundle size enforcement**: Automated size budget checks
-- **Smoke tests**: Validate ESM and CJS exports
+- **Streaming Architecture**: Process images in 8-scanline strips for constant memory usage
+- **Maximum Quality**: Optimized for 4:4:4 chroma subsampling and quality 100 (configurable)
+- **Rust/WebAssembly Core**: High-performance DCT, quantization, and Huffman encoding
+- **Universal (Isomorphic)**: Works seamlessly in both browser and Node.js environments
+- **Worker Pool**: Multi-threaded encoding using Web Workers (browser) or worker_threads (Node.js)
+- **TypeScript**: Full type safety with comprehensive type definitions
+- **Multiple Distribution Formats**: ESM, CommonJS, and browser bundles
 
-## Getting Started
-
-### 1. Clone this template
+## Installation
 
 ```bash
-git clone <this-repo> my-new-library
-cd my-new-library
+npm install streaming-jpeg
 ```
 
-### 2. Customize for your project
+## Prerequisites
 
-Update the following in `package.json`:
-- `name`: Your library name
-- `version`: Start version (e.g., "0.1.0")
-- `description`: What your library does
-- `repository.url`: Your GitHub repository URL
-- `keywords`: Relevant keywords
-- `author`: Your name
-- `dependencies`: Add any runtime dependencies you need
+To build from source, you'll need:
+- **Node.js** 20+
+- **Rust** 1.70+ with `wasm-pack` installed
+- **wasm-pack**: `cargo install wasm-pack`
 
-Update bundle size limits in `scripts/check-bundle-size.mjs` if needed:
-- `BUNDLE_LIMIT`: Default 100KB for browser bundle
-- `GZIP_LIMIT`: Default 50KB for gzipped bundle
-- `ESM_LIMIT`: Default 200KB for ESM bundle
+## Quick Start
 
-### 3. Update exports
+### Browser Usage
 
-Edit `scripts/smoke-esm.mjs` and `scripts/smoke-cjs.cjs` to match your library's exports.
-
-Example:
 ```javascript
-// Change this:
-assert.strictEqual(typeof mod.hello, 'function', 'ESM build should export hello');
+import { encode } from 'streaming-jpeg';
 
-// To match your exports:
-assert.strictEqual(typeof mod.myFunction, 'function', 'ESM build should export myFunction');
+// From Canvas
+const canvas = document.getElementById('myCanvas');
+const jpegBlob = await encode(canvas, { quality: 95 });
+
+// From ImageData
+const ctx = canvas.getContext('2d');
+const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+const jpegBlob = await encode(imageData, { quality: 100 });
+
+// From raw RGBA buffer
+const width = 640;
+const height = 480;
+const rgbaBuffer = new Uint8Array(width * height * 4);
+const jpegBlob = await encode(rgbaBuffer, { width, height, quality: 100 });
+
+// Download the result
+const url = URL.createObjectURL(jpegBlob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'image.jpg';
+a.click();
 ```
 
-### 4. Write your code
+### Node.js Usage
 
-Replace the example code in `src/index.ts` with your library code.
-Add tests alongside your source files as `*.test.ts`.
+```javascript
+import { encode } from 'streaming-jpeg';
+import { writeFile } from 'fs/promises';
 
-### 5. Install dependencies
+// From file
+const jpegBuffer = await encode('input.raw', {
+  width: 1920,
+  height: 1080,
+  quality: 100
+});
+await writeFile('output.jpg', jpegBuffer);
+
+// From Buffer
+const rgbaBuffer = Buffer.alloc(640 * 480 * 4);
+const jpegBuffer = await encode(rgbaBuffer, {
+  width: 640,
+  height: 480,
+  quality: 95
+});
+
+// From Stream
+import { createReadStream } from 'fs';
+const stream = createReadStream('input.raw');
+const jpegBuffer = await encode(stream, {
+  width: 1920,
+  height: 1080,
+  quality: 100
+});
+```
+
+## Building from Source
 
 ```bash
+# Install all dependencies
 npm install
-```
 
-### 6. Build and test
+# Build WebAssembly engine
+npm run build:wasm
 
-```bash
-# Run all tests (unit + browser)
-npm run test:all
+# Build JavaScript orchestrator
+npm run build:js
 
-# Run just unit tests
-npm test
-
-# Run with coverage
-npm run coverage
-
-# Build the library
+# Or build everything
 npm run build
 
-# Check bundle sizes
-npm run size
+# Run tests
+npm test
+
+# Run all tests (unit + integration)
+npm run test:all
 ```
 
 ## Project Structure
 
 ```
-.
-├── .github/workflows/    # GitHub Actions workflows
-│   ├── ci.yml           # Continuous integration
-│   ├── release.yml      # Version bumping and releases
-│   ├── npm-publish.yml  # NPM publishing
-│   ├── github-pages.yml # Documentation deployment
-│   └── dependency-review.yml
-├── scripts/             # Build and utility scripts
-│   ├── clean.mjs        # Clean build artifacts
-│   ├── build-bundles.mjs # Generate ESM and browser bundles
-│   ├── build-browser-bundle.js # Package docs
-│   ├── check-bundle-size.mjs # Enforce size budgets
-│   ├── smoke-esm.mjs    # Test ESM exports
-│   └── smoke-cjs.cjs    # Test CJS exports
-├── src/                 # Source code
-│   ├── index.ts         # Main entry point
-│   └── *.test.ts        # Unit tests
-├── tests/               # Additional tests
-│   └── browser.test.ts  # Browser bundle tests
-├── docs/                # Documentation (optional)
-├── tsconfig.*.json      # TypeScript configurations
-├── package.json         # Project metadata
-└── .gitignore          # Git ignore rules
+streaming-jpeg/
+├── packages/
+│   ├── wasm-engine/               # Rust/WebAssembly encoding core
+│   │   ├── src/
+│   │   │   └── lib.rs            # DCT, quantization, Huffman encoding
+│   │   ├── Cargo.toml
+│   │   └── package.json
+│   └── js-orchestrator/          # JavaScript/TypeScript orchestrator
+│       ├── src/
+│       │   ├── core/             # Universal core logic
+│       │   │   ├── encoder.ts    # Main encoder class
+│       │   │   ├── jpeg-markers.ts # JPEG header/footer generation
+│       │   │   └── constants.ts  # Quantization tables, constants
+│       │   ├── browser/          # Browser-specific code
+│       │   │   ├── index.ts      # Browser entry point
+│       │   │   └── worker-pool.ts # Web Worker pool
+│       │   └── node/             # Node.js-specific code
+│       │       ├── index.ts      # Node.js entry point
+│       │       └── worker-pool.ts # worker_threads pool
+│       └── package.json
+├── tests/
+│   ├── unit/                     # Unit tests
+│   │   ├── constants.test.ts
+│   │   ├── jpeg-markers.test.ts
+│   │   └── encoder.test.ts
+│   └── integration/              # Integration tests
+│       └── encoder-integration.test.ts
+├── scripts/                      # Build scripts
+├── package.json                  # Root package with workspaces
+└── README.md
 ```
 
 ## Available Scripts
