@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import sharp from 'sharp';
-import { encode } from '../../src/node/index.js';
+import { encode } from '../../src/index.js';
 
 describe('WASM JPEG Encoder Integration', () => {
   it('should encode a simple solid color image', async () => {
@@ -19,7 +19,7 @@ describe('WASM JPEG Encoder Integration', () => {
     }
 
     // Encode to JPEG
-    const jpegBuffer = await encode(buffer, { width, height, quality });
+    const jpegBuffer = await encode(buffer, { width, height, quality }) as Buffer;
 
     // Verify it's a valid JPEG
     assert.ok(jpegBuffer.length > 0, 'JPEG buffer should not be empty');
@@ -70,7 +70,7 @@ describe('WASM JPEG Encoder Integration', () => {
     }
 
     // Encode to JPEG
-    const jpegBuffer = await encode(buffer, { width, height, quality });
+    const jpegBuffer = await encode(buffer, { width, height, quality }) as Buffer;
 
     // Verify it's a valid JPEG
     assert.ok(jpegBuffer.length > 0, 'JPEG buffer should not be empty');
@@ -100,13 +100,13 @@ describe('WASM JPEG Encoder Integration', () => {
     }
 
     // Encode with quality 100
-    const jpeg100 = await encode(buffer, { width, height, quality: 100 });
+    const jpeg100 = await encode(buffer, { width, height, quality: 100 }) as Buffer;
 
     // Encode with quality 75
-    const jpeg75 = await encode(buffer, { width, height, quality: 75 });
+    const jpeg75 = await encode(buffer, { width, height, quality: 75 }) as Buffer;
 
     // Encode with quality 50
-    const jpeg50 = await encode(buffer, { width, height, quality: 50 });
+    const jpeg50 = await encode(buffer, { width, height, quality: 50 }) as Buffer;
 
     // All should be valid JPEGs with proper markers
     assert.strictEqual(jpeg100[0], 0xFF, 'Quality 100: Should start with 0xFF');
@@ -149,7 +149,7 @@ describe('WASM JPEG Encoder Integration', () => {
     }
 
     // Should encode without errors
-    const jpegBuffer = await encode(buffer, { width, height, quality });
+    const jpegBuffer = await encode(buffer, { width, height, quality }) as Buffer;
 
     // Verify it's valid
     assert.strictEqual(jpegBuffer[0], 0xFF);
@@ -166,7 +166,7 @@ describe('WASM JPEG Encoder Integration', () => {
     // Single pixel image
     const buffer = new Uint8Array([255, 255, 255, 255]); // White pixel
 
-    const jpegBuffer = await encode(buffer, { width, height, quality });
+    const jpegBuffer = await encode(buffer, { width, height, quality }) as Buffer;
 
     // Should still be a valid JPEG
     assert.strictEqual(jpegBuffer[0], 0xFF);
